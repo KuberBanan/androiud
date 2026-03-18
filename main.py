@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from analyzer import SYSTEM_PROMPT, build_user_prompt, estimate_counterfeit_risk, extract_review_texts
 from parser import parse_kaspi, parse_ozon, parse_wb
 
 DB_PATH = Path("tracked_items.db")
@@ -156,6 +157,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("url", nargs="?", help="Ссылка на товар для /track")
     parser.add_argument("--headed", action="store_true", help="Запустить браузер в видимом режиме (headless=False)")
     parser.add_argument("--track", action="store_true", help="Запустить бесконечный цикл отслеживания уже сохраненных товаров")
+    parser.add_argument("--analyze", action="store_true", help="Сформировать промт для LLM и выдать риск контрафакта")
+    parser.add_argument("--market-price", type=float, default=None, help="Средняя рыночная цена для сравнения")
+    parser.add_argument("--show-system-prompt", action="store_true", help="Показать системный промт для Telegram-бота")
     return parser
 
 
@@ -184,6 +188,37 @@ def main() -> None:
         raise ValueError("Передайте ссылку на товар или используйте /track.")
 
     result = parse_product(args.target, headless=headless)
+
+    if args.show_system_prompt:
+        print(SYSTEM_PROMPT)
+
+    if args.analyze:
+        review_texts = extract_review_texts(result.get("latest_reviews", []))
+        prompt = build_user_prompt(
+            title=result.get("title") or "Неизвестный товар",
+            price=result.get("current_price"),
+            rating=result.get("rating"),
+            reviews=review_texts,
+            url=result.get("url") or args.target,
+            market_price=args.market_price,
+            reviews_count=result.get("reviews_count"),
+        )
+        risk = estimate_counterfeit_risk(
+            price=result.get("current_price"),
+            market_price=args.market_price,
+            rating=result.get("rating"),
+            reviews_count=result.get("reviews_count"),
+            reviews=review_texts,
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print("\n===== SYSTEM PROMPT =====\n")
+        print(SYSTEM_PROMPT)
+        print("\n===== USER PROMPT =====\n")
+        print(prompt)
+        print("\n===== BOT OUTPUT (fallback без LLM API) =====\n")
+        print(risk.render())
+        return
+
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
