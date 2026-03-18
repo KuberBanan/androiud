@@ -37,6 +37,23 @@ python main.py /track "https://kaspi.kz/shop/p/..."
 python main.py --track
 ```
 
+### Анти-контрафакт анализ (промты для Telegram-бота)
+
+Команда ниже:
+1) парсит товар,
+2) формирует **system prompt** и **user prompt** для нейросети,
+3) печатает fallback-вердикт (если LLM API не подключен).
+
+```bash
+python main.py --analyze --market-price 4200 "https://www.wildberries.ru/catalog/123456/detail.aspx"
+```
+
+Отдельно можно вывести только системный промт:
+
+```bash
+python main.py --show-system-prompt "https://www.ozon.ru/product/..."
+```
+
 ## Формат JSON ответа
 
 ```json
